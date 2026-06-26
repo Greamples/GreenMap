@@ -4,6 +4,7 @@
   "package": "org.greamples.epmap.mixin.client",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "MinimapChunkMixin"
   ],
   "injectors": {
     "defaultRequire": 1

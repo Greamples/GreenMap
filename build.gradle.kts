@@ -2,13 +2,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.4.0"
-    id("net.fabricmc.fabric-loom") version "1.17.12"
-    id("maven-publish")
+    kotlin("jvm") version libs.versions.kotlin.get()
+    idea
+    alias(libs.plugins.loom)
 }
 
+group = "org.greamples"
 version = project.property("mod_version") as String
-group = project.property("maven_group") as String
 
 base {
     archivesName.set(project.property("archives_base_name") as String)
@@ -36,32 +36,43 @@ loom {
 
 
 repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-    // for more information about repositories.
+    mavenCentral()
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = uri("https://api.modrinth.com/maven")
+            }
+        }
+        filter {
+            includeGroup("maven.modrinth")
+        }
+    }
 }
 
 dependencies {
-    minecraft("com.mojang:minecraft:${project.property("minecraft_version")}")
-    implementation("net.fabricmc:fabric-loader:${project.property("loader_version")}")
-    implementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version")}")
-    implementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version")}")
+    minecraft(libs.minecraft)
+    implementation(libs.fabric.loader)
+    implementation(libs.fabric.kotlin)
+    implementation(libs.fabric.api)
+    implementation("maven.modrinth:xaeros-minimap:fabric-26.1.2-26.1.3")
+
 }
 
 tasks.processResources {
     inputs.property("version", project.version)
-    inputs.property("minecraft_version", project.property("minecraft_version"))
-    inputs.property("loader_version", project.property("loader_version"))
+    inputs.property("minecraft_version", libs.versions.minecraft.get())
+    inputs.property("loader_version", libs.versions.fabric.loader.get())
+    inputs.property("xaerosminimap", libs.versions.xaero.minimap.get())
     filteringCharset = "UTF-8"
 
     filesMatching("fabric.mod.json") {
         expand(
             "version" to project.version,
-            "minecraft_version" to project.property("minecraft_version").toString(),
-            "loader_version" to project.property("loader_version").toString(),
-            "kotlin_loader_version" to project.property("kotlin_loader_version").toString()
+            "minecraft_version" to libs.versions.minecraft.get(),
+            "loader_version" to libs.versions.fabric.loader.get(),
+            "kotlin_loader_version" to libs.versions.fabric.kotlin.get(),
+            "xaerosminimap" to libs.versions.xaero.minimap.get(),
         )
     }
 }
@@ -85,20 +96,9 @@ tasks.jar {
     }
 }
 
-// configure the maven publication
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            artifactId = project.property("archives_base_name") as String
-            from(components["java"])
-        }
-    }
-
-    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-    repositories {
-        // Add repositories to publish to here.
-        // Notice: This block does NOT have the same function as the block in the top level.
-        // The repositories here will be used for publishing your artifact, not for
-        // retrieving dependencies.
+idea {
+    module {
+        isDownloadSources = true
+        isDownloadJavadoc = true
     }
 }
