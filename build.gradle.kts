@@ -55,16 +55,15 @@ dependencies {
     implementation(libs.fabric.loader)
     implementation(libs.fabric.kotlin)
     implementation(libs.fabric.api)
+    implementation("maven.modrinth:xaeros-minimap:fabric-26.1.2-26.1.3")
 
-    implementation("maven.modrinth:xaeros-world-map:fabric-${libs.versions.minecraft.get()}-${libs.versions.xaero.worldmap.get()}")
-//    localRuntime(libs.xaero.worldmap)
 }
 
 tasks.processResources {
     inputs.property("version", project.version)
     inputs.property("minecraft_version", libs.versions.minecraft.get())
     inputs.property("loader_version", libs.versions.fabric.loader.get())
-    inputs.property("xaeroworldmap", libs.versions.xaero.worldmap.get())
+    inputs.property("xaerosminimap", libs.versions.xaero.minimap.get())
     filteringCharset = "UTF-8"
 
     filesMatching("fabric.mod.json") {
@@ -73,7 +72,7 @@ tasks.processResources {
             "minecraft_version" to libs.versions.minecraft.get(),
             "loader_version" to libs.versions.fabric.loader.get(),
             "kotlin_loader_version" to libs.versions.fabric.kotlin.get(),
-            "xaeroworldmap" to libs.versions.xaero.worldmap.get(),
+            "xaerosminimap" to libs.versions.xaero.minimap.get(),
         )
     }
 }

@@ -5,21 +5,17 @@
   "name": "EPMap",
   "description": "EPMap mod",
   "authors": [
-    "gosbryy"
+    "Greamples"
   ],
   "contact": {},
   "license": "All-Rights-Reserved",
-"environment": "client",
+  "environment": "client",
   "entrypoints": {
     "client": [
       "org.greamples.epmap.client.EpMapClient"
-    ],
-    "main": [
-      "org.greamples.epmap.EpMap"
     ]
   },
   "mixins": [
-    "epmap.mixins.json",
     {
       "config": "epmap.client.mixins.json",
       "environment": "client"
@@ -30,6 +26,6 @@
     "fabric-language-kotlin": ">=${kotlin_loader_version}",
     "fabric-api": "*",
     "minecraft": "${minecraft_version}",
-    "xaeroworldmap": "${xaeroworldmap}"
+    "xaerosminimap": "${xaerosminimap}"
   }
 }
