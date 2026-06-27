@@ -1,5 +1,6 @@
 package org.greamples.epmap.mixin.client;
 
+import org.greamples.epmap.client.ChunkQueueManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -33,6 +34,7 @@ public abstract class MinimapChunkMixin {
                 copy.rewind();
                 copy.get(pixelData);
                 // pixelData содержит ARGB цвета чанка
+                ChunkQueueManager.INSTANCE.addChunk(chunkX, chunkZ, pixelData);
             }
         }
     }

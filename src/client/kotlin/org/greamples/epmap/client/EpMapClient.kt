@@ -14,6 +14,7 @@ class EpMapClient : ClientModInitializer {
     }
 
     override fun onInitializeClient() {
+        ChunkQueueManager.startQueueWorker()
         ClientPlayConnectionEvents.JOIN.register { _, _, client ->
             val serverInfo = client.currentServer
             isTargetServer = serverInfo?.ip?.contains(SERVER_IP, ignoreCase = true) ?: false
