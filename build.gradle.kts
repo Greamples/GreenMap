@@ -8,13 +8,13 @@ plugins {
 }
 
 group = "org.greamples"
-version = project.property("mod_version") as String
+version = libs.versions.mod.get()
 
 base {
     archivesName.set(project.property("archives_base_name") as String)
 }
 
-val targetJavaVersion = 25
+val targetJavaVersion = libs.versions.java.get().toInt()
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
@@ -55,7 +55,7 @@ dependencies {
     implementation(libs.fabric.loader)
     implementation(libs.fabric.kotlin)
     implementation(libs.fabric.api)
-    implementation("maven.modrinth:xaeros-minimap:fabric-26.1.2-26.1.3")
+    implementation("maven.modrinth:xaeros-minimap:fabric-${libs.versions.minecraft.get()}-${libs.versions.xaero.minimap.get()}")
 
 }
 
@@ -63,7 +63,7 @@ tasks.processResources {
     inputs.property("version", project.version)
     inputs.property("minecraft_version", libs.versions.minecraft.get())
     inputs.property("loader_version", libs.versions.fabric.loader.get())
-    inputs.property("xaerosminimap", libs.versions.xaero.minimap.get())
+    inputs.property("xaerominimap", libs.versions.xaero.minimap.get())
     filteringCharset = "UTF-8"
 
     filesMatching("fabric.mod.json") {
@@ -72,7 +72,7 @@ tasks.processResources {
             "minecraft_version" to libs.versions.minecraft.get(),
             "loader_version" to libs.versions.fabric.loader.get(),
             "kotlin_loader_version" to libs.versions.fabric.kotlin.get(),
-            "xaerosminimap" to libs.versions.xaero.minimap.get(),
+            "xaerominimap" to libs.versions.xaero.minimap.get(),
         )
     }
 }
