@@ -1,12 +1,15 @@
 package org.greamples.epmap.mixin.client;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 import org.greamples.epmap.client.ChunkQueueManager;
+import org.greamples.epmap.client.EpMapClient;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.greamples.epmap.client.EpMapClient;
 import xaero.common.minimap.region.MinimapChunk;
 
 import java.nio.IntBuffer;
@@ -23,7 +26,13 @@ public abstract class MinimapChunkMixin {
         if (!EpMapClient.Companion.isTargetServer()) {
             return;
         }
-        
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            return;
+        }
+        ResourceKey<Level> dimensionKey = minecraft.level.dimension();
+        String dimensionId = dimensionKey.identifier().toString();
         int chunkX = this.X;
         int chunkZ = this.Z;
         if (this.buffer != null && this.buffer.length > 0) {
@@ -34,7 +43,7 @@ public abstract class MinimapChunkMixin {
                 copy.rewind();
                 copy.get(pixelData);
                 // pixelData содержит ARGB цвета чанка
-                ChunkQueueManager.INSTANCE.addChunk(chunkX, chunkZ, pixelData);
+                ChunkQueueManager.INSTANCE.addChunk(dimensionId, chunkX, chunkZ, pixelData);
             }
         }
     }

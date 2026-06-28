@@ -8,13 +8,13 @@ plugins {
 }
 
 group = "org.greamples"
-version = libs.versions.mod.get()
+version = project.property("mod_version") as String
 
 base {
     archivesName.set(project.property("archives_base_name") as String)
 }
 
-val targetJavaVersion = libs.versions.java.get().toInt()
+val targetJavaVersion = 25
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task

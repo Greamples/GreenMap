@@ -5,10 +5,12 @@ import java.util.Timer
 import kotlin.concurrent.timerTask
 
 object ChunkQueueManager {
+    // В корзине ключом теперь будет "ИЗМЕРЕНИЕ:X:Z" (например, "minecraft:overworld:10:-5")
     val basketChunks: ConcurrentHashMap<String, IntArray> = ConcurrentHashMap()
 
-    fun addChunk(chunkX: Int, chunkZ: Int, pixelData: IntArray) {
-        val key = "$chunkX:$chunkZ"
+    // Принимаем измерение как простую строку (String) и не забываем про chunkX!
+    fun addChunk(dimension: String, chunkX: Int, chunkZ: Int, pixelData: IntArray) {
+        val key = "$dimension:$chunkX:$chunkZ"
         basketChunks[key] = pixelData
     }
     fun startQueueWorker() {
