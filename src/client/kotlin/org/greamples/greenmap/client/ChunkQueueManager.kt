@@ -1,4 +1,4 @@
-package org.greamples.epmap.client
+package org.greamples.greenmap.client
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.Timer
@@ -14,7 +14,7 @@ object ChunkQueueManager {
         basketChunks[key] = pixelData
     }
     fun startQueueWorker() {
-        val timer = Timer("EPMap-Queue-Worker", true)
+        val timer = Timer("GreenMap-Queue-Worker", true)
         timer.scheduleAtFixedRate(timerTask {
             if (basketChunks.isEmpty()) return@timerTask
             val chunksToSend = HashMap(basketChunks)

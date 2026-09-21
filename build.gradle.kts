@@ -27,7 +27,7 @@ loom {
     splitEnvironmentSourceSets()
 
     mods {
-        register("epmap") {
+        register("greenmap") {
             sourceSet("main")
             sourceSet("client")
         }

@@ -1,9 +1,9 @@
-package org.greamples.epmap.client
+package org.greamples.greenmap.client
 
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 
-class EpMapClient : ClientModInitializer {
+class GreenMapClient : ClientModInitializer {
 
     companion object {
         const val SERVER_IP = "epserv.ru"
