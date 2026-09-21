@@ -1,10 +1,10 @@
-package org.greamples.epmap.mixin.client;
+package org.greamples.greenmap.mixin.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
-import org.greamples.epmap.client.ChunkQueueManager;
-import org.greamples.epmap.client.EpMapClient;
+import org.greamples.greenmap.client.ChunkQueueManager;
+import org.greamples.greenmap.client.GreenMapClient;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,7 +23,7 @@ public abstract class MinimapChunkMixin {
 
     @Inject(method = "updateBuffers", at = @At("TAIL"))
     private void onRendered(int levelsToLoad, int[][] intArrayBuffer, CallbackInfo ci) {
-        if (!EpMapClient.Companion.isTargetServer()) {
+        if (!GreenMapClient.Companion.isTargetServer()) {
             return;
         }
 

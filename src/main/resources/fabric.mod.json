@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "epmap",
+  "id": "greenmap",
   "version": "${version}",
-  "name": "EPMap",
-  "description": "EPMap mod",
+  "name": "GreenMap",
+  "description": "GreenMap mod",
   "authors": [
     "Greamples"
   ],
@@ -12,12 +12,12 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "org.greamples.epmap.client.EpMapClient"
+      "org.greamples.greenmap.client.GreenMapClient"
     ]
   },
   "mixins": [
     {
-      "config": "epmap.client.mixins.json",
+      "config": "greenmap.client.mixins.json",
       "environment": "client"
     }
   ],

@@ -1,6 +1,6 @@
-# AGENTS.md — Developer and Agent Guide for EPMap
+# AGENTS.md — Developer and Agent Guide for GreenMap
 
-EPMap is a **client-only Fabric mod** for Minecraft (target version 26.1.2) written in Kotlin, with Mixins written in Java. It hooks into Xaero's Minimap to intercept rendered chunk pixel data (ARGB buffers) and store them in a queue to prepare them for upload to a web server (for an online interactive map).
+GreenMap is a **client-only Fabric mod** for Minecraft (target version 26.1.2) written in Kotlin, with Mixins written in Java. It hooks into Xaero's Minimap to intercept rendered chunk pixel data (ARGB buffers) and store them in a queue to prepare them for upload to a web server (for an online interactive map).
 
 ---
 
@@ -26,12 +26,12 @@ EPMap is a **client-only Fabric mod** for Minecraft (target version 26.1.2) writ
 Loom's `splitEnvironmentSourceSets()` is active. Mixing up source sets will break compilation.
 - `src/main/` — Contains common files (mostly metadata like `fabric.mod.json`).
 - `src/client/` — Contains all client-side code:
-  - **Kotlin**: `src/client/kotlin/org/greamples/epmap/client/`
-    - `EpMapClient.kt`: Entrypoint. Listens to server join/disconnect events. Sets safety flags.
+  - **Kotlin**: `src/client/kotlin/org/greamples/greenmap/client/`
+    - `GreenMapClient.kt`: Entrypoint. Listens to server join/disconnect events. Sets safety flags.
     - `ChunkQueueManager.kt`: Implements the thread-safe queue and periodic worker task.
-  - **Java**: `src/client/java/org/greamples/epmap/mixin/client/`
+  - **Java**: `src/client/java/org/greamples/greenmap/mixin/client/`
     - `MinimapChunkMixin.java`: Mixin that hooks Xaero's Minimap render buffers.
-  - **Resources**: `src/client/resources/epmap.client.mixins.json`
+  - **Resources**: `src/client/resources/greenmap.client.mixins.json`
     - Registered mixins must be listed here.
 
 ---
@@ -40,7 +40,7 @@ Loom's `splitEnvironmentSourceSets()` is active. Mixing up source sets will brea
 
 ```mermaid
 graph TD
-    A[Minecraft Client] -->|ClientPlayConnectionEvents| B(EpMapClient)
+    A[Minecraft Client] -->|ClientPlayConnectionEvents| B(GreenMapClient)
     B -->|Check IP Contains epserv.ru| C{isTargetServer?}
     D[Xaero's MinimapChunk] -->|Mixin: updateBuffers TAIL| E{isTargetServer == true?}
     E -->|Yes| F[Get Dimension ID & X/Z Coord]
@@ -50,7 +50,7 @@ graph TD
     I -->|WIP: Send to HTTP Server| J[Web Server Tiles]
 ```
 
-### 1. Connection and Filter Gating (`EpMapClient.kt`)
+### 1. Connection and Filter Gating (`GreenMapClient.kt`)
 - Filters connection by IP to ensure we only capture map data on target servers.
 - Currently gates on the domain `epserv.ru` (checks if the server IP `.contains("epserv.ru")` to support subdomains like `ekb.mc.epserv.ru`, `3.ekb.mc.epserv.ru`, etc.).
 - Keeps a `@Volatile var isTargetServer` flag updated.
