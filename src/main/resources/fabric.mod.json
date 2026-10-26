@@ -3,7 +3,7 @@
   "id": "greenmap",
   "version": "${version}",
   "name": "GreenMap",
-  "description": "GreenMap mod",
+  "description": "Collects loaded chunks as resource-pack independent data for a shared server map",
   "authors": [
     "Greamples"
   ],
@@ -15,17 +15,10 @@
       "org.greamples.greenmap.client.GreenMapClient"
     ]
   },
-  "mixins": [
-    {
-      "config": "greenmap.client.mixins.json",
-      "environment": "client"
-    }
-  ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-language-kotlin": ">=${kotlin_loader_version}",
     "fabric-api": "*",
-    "minecraft": "${minecraft_version}",
-    "xaerominimap": "${xaerominimap}"
+    "minecraft": "${minecraft_version}"
   }
 }
