@@ -28,10 +28,8 @@ class GreenMapClient : ClientModInitializer {
         ChunkQueueManager.startQueueWorker(config, ChunkUploader(config))
 
         ClientPlayConnectionEvents.JOIN.register { _, _, client ->
-            val address = client.currentServer?.ip
-            // Одиночная игра (address == null) пропускается, если задан фильтр серверов.
-            isTargetServer = config.serverFilter.isBlank() ||
-                (address?.contains(config.serverFilter, ignoreCase = true) ?: false)
+            isTargetServer = config.matchesServer(client.currentServer?.ip)
+            ChunkQueueManager.resetSession()
             ChunkQueueManager.playerName = client.user.name
             ChunkQueueManager.playerUuid = client.user.profileId.toString()
             controller.reset()

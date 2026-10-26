@@ -29,6 +29,14 @@ class RendererTest {
     }
 
     @Test
+    fun forgedFutureTimestampCannotPinChunk() {
+        val map = WorldMap()
+        map.add(flatChunk(0, 0, "minecraft:stone", scannedAt = Long.MAX_VALUE), receivedAt = 1_000)
+        map.add(flatChunk(0, 0, "minecraft:dirt", scannedAt = 1_500), receivedAt = 2_000)
+        assertEquals("minecraft:dirt", map.chunk("minecraft:overworld", 0, 0)!!.blockAt(0, 0))
+    }
+
+    @Test
     fun negativeChunksLandInNegativeRegions() {
         val map = WorldMap()
         map.add(flatChunk(-1, -33, "minecraft:stone", 1))

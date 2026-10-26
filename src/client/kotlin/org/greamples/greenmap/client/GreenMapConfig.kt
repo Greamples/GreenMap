@@ -8,7 +8,7 @@ import java.nio.file.Files
 /** Настройки из config/greenmap.json. Файл создаётся с значениями по умолчанию при первом запуске. */
 class GreenMapConfig {
     var enabled: Boolean = true
-    /** Сбор работает только на серверах, адрес которых содержит эту строку (пусто = на любом). */
+    /** Сбор работает только на этом домене и его поддоменах (пусто = на любом сервере и в одиночной игре). */
     var serverFilter: String = "epserv.ru"
     /** URL, куда POST-ом уходят пачки чанков. Пусто = отправка выключена. */
     var endpoint: String = ""
@@ -22,6 +22,24 @@ class GreenMapConfig {
     /** Сколько чанков сканировать за тик, чтобы не было фризов. */
     var chunksPerTick: Int = 8
 
+    /** Gson может записать null даже в не-null поля Kotlin — подставляем значения по умолчанию. */
+    @Suppress("SENSELESS_COMPARISON")
+    private fun sanitized(): GreenMapConfig = apply {
+        val defaults = GreenMapConfig()
+        if (serverFilter == null) serverFilter = defaults.serverFilter
+        if (endpoint == null) endpoint = defaults.endpoint
+        if (token == null) token = defaults.token
+        if (dumpDir == null) dumpDir = defaults.dumpDir
+    }
+
+    /** Сбор включён на этом сервере? address — "host" или "host:port", null в одиночной игре. */
+    fun matchesServer(address: String?): Boolean {
+        val filter = serverFilter.trim().lowercase()
+        if (filter.isEmpty()) return true
+        val host = address?.trim()?.lowercase()?.substringBefore(':')?.removeSuffix(".") ?: return false
+        return host == filter || host.endsWith(".$filter")
+    }
+
     companion object {
         private val LOGGER = LoggerFactory.getLogger("GreenMap")
         private val GSON = GsonBuilder().setPrettyPrinting().create()
@@ -30,7 +48,7 @@ class GreenMapConfig {
             val path = FabricLoader.getInstance().configDir.resolve("greenmap.json")
             val config = try {
                 if (Files.exists(path)) {
-                    Files.newBufferedReader(path).use { GSON.fromJson(it, GreenMapConfig::class.java) } ?: GreenMapConfig()
+                    Files.newBufferedReader(path).use { GSON.fromJson(it, GreenMapConfig::class.java) }?.sanitized() ?: GreenMapConfig()
                 } else {
                     GreenMapConfig()
                 }

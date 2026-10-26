@@ -15,12 +15,23 @@ class WorldMap {
 
     val size get() = chunks.size
 
-    fun add(batch: SnapshotBatch) = batch.chunks.forEach(::add)
+    private val receivedAt = HashMap<ChunkKey, Long>()
 
-    fun add(snapshot: ChunkSnapshot) {
+    /**
+     * @param receivedAt время получения пачки сервером. Время из пачки задаёт клиент, поэтому
+     * ему не доверяем: иначе снимок с scannedAt = Long.MAX_VALUE нельзя было бы перезаписать.
+     */
+    fun add(batch: SnapshotBatch, receivedAt: Long = System.currentTimeMillis()) =
+        batch.chunks.forEach { add(it, receivedAt) }
+
+    fun add(snapshot: ChunkSnapshot, receivedAt: Long = System.currentTimeMillis()) {
         val key = ChunkKey(snapshot.dimension, snapshot.chunkX, snapshot.chunkZ)
-        val existing = chunks[key]
-        if (existing == null || existing.scannedAt <= snapshot.scannedAt) chunks[key] = snapshot
+        val time = minOf(snapshot.scannedAt, receivedAt)
+        val existing = this.receivedAt[key]
+        if (existing == null || existing <= time) {
+            chunks[key] = snapshot
+            this.receivedAt[key] = time
+        }
     }
 
     fun chunk(dimension: String, x: Int, z: Int): ChunkSnapshot? = chunks[ChunkKey(dimension, x, z)]

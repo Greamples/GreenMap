@@ -19,14 +19,20 @@ import org.greamples.greenmap.protocol.ChunkSnapshotBuilder
  */
 object ChunkScanner {
     private const val MAX_WATER_DEPTH = 255
+    /** Толщина бедрокового потолка Незера: в нём бывают дыры, поэтому начинаем ниже. */
+    private const val CEILING_THICKNESS = 5
 
     fun scan(chunk: LevelChunk, dimension: String, now: Long = System.currentTimeMillis()): ChunkSnapshot {
         val pos = chunk.pos
         val builder = ChunkSnapshotBuilder(dimension, pos.x(), pos.z())
         val dimensionType = chunk.level.dimensionType()
         val minY = chunk.minY
-        // В Незере крыша из бедрока: начинаем ниже логической высоты и пропускаем потолок.
-        val ceilingY = if (dimensionType.hasCeiling()) minY + dimensionType.logicalHeight() - 1 else Int.MAX_VALUE
+        // В Незере крыша из бедрока: начинаем под ней и пропускаем сплошной камень до первой пещеры.
+        val ceilingY = if (dimensionType.hasCeiling()) {
+            minY + dimensionType.logicalHeight() - 1 - CEILING_THICKNESS
+        } else {
+            Int.MAX_VALUE
+        }
         val cursor = BlockPos.MutableBlockPos()
 
         for (z in 0 until 16) for (x in 0 until 16) {

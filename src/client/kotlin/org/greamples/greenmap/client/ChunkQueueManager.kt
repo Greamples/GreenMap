@@ -1,6 +1,7 @@
 package org.greamples.greenmap.client
 
 import org.greamples.greenmap.protocol.ChunkSnapshot
+import org.greamples.greenmap.protocol.GreenMapCodec
 import org.greamples.greenmap.protocol.SnapshotBatch
 import org.slf4j.LoggerFactory
 import java.util.Timer
@@ -11,12 +12,21 @@ object ChunkQueueManager {
     private val LOGGER = LoggerFactory.getLogger("GreenMap")
     private const val MAX_BATCH = 512
     private const val MAX_REMEMBERED_HASHES = 200_000
+    private const val MAX_BACKOFF_MS = 5 * 60_000L
 
     // Ключ "ИЗМЕРЕНИЕ:X:Z" (например, "minecraft:overworld:10:-5"): новый снимок перезаписывает старый.
     val basketChunks: ConcurrentHashMap<String, ChunkSnapshot> = ConcurrentHashMap()
 
     // Хэши уже отправленного содержимого: неизменившиеся чанки повторно не шлём.
     private val sentHashes = ConcurrentHashMap<String, Long>()
+
+    /** Пачка, которую не удалось доставить: повторяем её саму, не мешая копиться новым чанкам. */
+    private class PendingBatch(val chunks: Map<String, ChunkSnapshot>, val body: ByteArray)
+
+    // Поля ниже трогает только поток воркера.
+    private var pending: PendingBatch? = null
+    private var backoffMs = 0L
+    private var nextAttemptAt = 0L
 
     @Volatile
     var playerName: String = ""
@@ -29,25 +39,54 @@ object ChunkQueueManager {
         basketChunks[key] = snapshot
     }
 
+    /** Новый сервер — новая карта: забываем, что уже отправляли. */
+    fun resetSession() {
+        sentHashes.clear()
+    }
+
     fun startQueueWorker(config: GreenMapConfig, uploader: ChunkUploader) {
         val period = config.uploadIntervalSeconds.coerceAtLeast(1) * 1000L
         val timer = Timer("GreenMap-Queue-Worker", true)
-        timer.scheduleAtFixedRate(timerTask {
+        // schedule (а не scheduleAtFixedRate), чтобы после медленного запроса не было серии догоняющих запусков.
+        timer.schedule(timerTask {
             try {
-                flush(uploader)
-            } catch (e: Exception) {
+                flush(uploader, period)
+            } catch (e: Throwable) {
                 LOGGER.warn("Ошибка при отправке чанков", e)
             }
         }, period, period)
     }
 
-    private fun flush(uploader: ChunkUploader) {
-        if (basketChunks.isEmpty()) return
+    private fun flush(uploader: ChunkUploader, period: Long) {
+        if (System.currentTimeMillis() < nextAttemptAt) return
+        val batch = pending ?: takeBatch(uploader) ?: return
+
+        when (uploader.send(batch.body, batch.chunks.size)) {
+            ChunkUploader.Result.DELIVERED -> {
+                if (sentHashes.size > MAX_REMEMBERED_HASHES) sentHashes.clear()
+                for ((key, snapshot) in batch.chunks) sentHashes[key] = snapshot.contentHash()
+                pending = null
+                backoffMs = 0
+            }
+            ChunkUploader.Result.REJECTED -> {
+                pending = null
+                backoffMs = 0
+            }
+            ChunkUploader.Result.RETRY -> {
+                pending = batch
+                backoffMs = (if (backoffMs == 0L) period else backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+                nextAttemptAt = System.currentTimeMillis() + backoffMs
+            }
+        }
+    }
+
+    private fun takeBatch(uploader: ChunkUploader): PendingBatch? {
+        if (basketChunks.isEmpty()) return null
         val taken = HashMap<String, ChunkSnapshot>()
         for (key in basketChunks.keys.take(MAX_BATCH)) {
             basketChunks.remove(key)?.let { taken[key] = it }
         }
-        if (taken.isEmpty()) return
+        if (taken.isEmpty()) return null
 
         val batch = SnapshotBatch(
             modVersion = GreenMapClient.modVersion,
@@ -57,12 +96,8 @@ object ChunkQueueManager {
             createdAt = System.currentTimeMillis(),
             chunks = taken.values.toList(),
         )
-        if (uploader.send(batch)) {
-            if (sentHashes.size > MAX_REMEMBERED_HASHES) sentHashes.clear()
-            for ((key, snapshot) in taken) sentHashes[key] = snapshot.contentHash()
-        } else {
-            // Не получилось — вернём в корзину, если за это время не пришёл более свежий снимок.
-            for ((key, snapshot) in taken) basketChunks.putIfAbsent(key, snapshot)
-        }
+        val body = GreenMapCodec.encode(batch)
+        uploader.dump(body)
+        return PendingBatch(taken, body)
     }
 }
