@@ -32,6 +32,19 @@ loom {
             sourceSet("client")
         }
     }
+
+    runs {
+        // Генерирует регион на выделенном сервере и сохраняет то, что отправил бы мод.
+        // ./gradlew runExportRegion -Pregion=3,-2   (по умолчанию случайный регион)
+        register("exportRegion") {
+            server()
+            name("Export Region")
+            runDir("run/export")
+            property("greenmap.export.out", rootProject.file("build/export").absolutePath)
+            property("greenmap.export.region", project.findProperty("region")?.toString() ?: "random")
+            property("greenmap.export.dimension", project.findProperty("dimension")?.toString() ?: "minecraft:overworld")
+        }
+    }
 }
 
 

@@ -9,8 +9,11 @@
   ],
   "contact": {},
   "license": "All-Rights-Reserved",
-  "environment": "client",
+  "environment": "*",
   "entrypoints": {
+    "main": [
+      "org.greamples.greenmap.GreenMapDevExport"
+    ],
     "client": [
       "org.greamples.greenmap.client.GreenMapClient"
     ]
