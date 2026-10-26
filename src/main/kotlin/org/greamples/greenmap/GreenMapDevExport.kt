@@ -2,6 +2,7 @@ package org.greamples.greenmap
 
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.SharedConstants
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.Identifier
@@ -10,6 +11,7 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.world.level.ChunkPos
 import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.chunk.status.ChunkStatus
+import org.greamples.greenmap.protocol.ChunkSnapshot
 import org.greamples.greenmap.protocol.GreenMapCodec
 import org.greamples.greenmap.protocol.SnapshotBatch
 import org.slf4j.LoggerFactory
@@ -29,44 +31,70 @@ class GreenMapDevExport : ModInitializer {
 
     override fun onInitialize() {
         val out = System.getProperty("greenmap.export.out") ?: return
+        var job: ExportJob? = null
         ServerLifecycleEvents.SERVER_STARTED.register { server ->
-            try {
-                export(server, Path.of(out))
+            job = try {
+                ExportJob(server, Path.of(out))
             } catch (e: Exception) {
                 logger.error("Экспорт региона не удался", e)
-            } finally {
+                server.halt(false)
+                null
+            }
+        }
+        // Генерируем по одной строке чанков за тик, чтобы сервер успевал разгребать свои задачи.
+        ServerTickEvents.END_SERVER_TICK.register { server ->
+            val current = job ?: return@register
+            try {
+                if (current.step()) {
+                    current.save()
+                    job = null
+                    server.halt(false)
+                }
+            } catch (e: Exception) {
+                logger.error("Экспорт региона не удался", e)
+                job = null
                 server.halt(false)
             }
         }
     }
 
-    private fun export(server: MinecraftServer, outDir: Path) {
-        val dimensionId = System.getProperty("greenmap.export.dimension", "minecraft:overworld")
-        val level = server.getLevel(ResourceKey.create(Registries.DIMENSION, Identifier.parse(dimensionId)))
+    private inner class ExportJob(server: MinecraftServer, private val outDir: Path) {
+        private val dimensionId = System.getProperty("greenmap.export.dimension", "minecraft:overworld")
+        private val level = server.getLevel(ResourceKey.create(Registries.DIMENSION, Identifier.parse(dimensionId)))
             ?: error("Нет измерения $dimensionId")
-        val (regionX, regionZ) = parseRegion(System.getProperty("greenmap.export.region", "random"))
-        val min = ChunkPos.minFromRegion(regionX, regionZ)
-        logger.info("Генерирую и сканирую регион r.{}.{} в {}", regionX, regionZ, dimensionId)
+        private val region = parseRegion(System.getProperty("greenmap.export.region", "random"))
+        private val min = ChunkPos.minFromRegion(region.first, region.second)
+        private val chunks = ArrayList<ChunkSnapshot>(ChunkPos.REGION_SIZE * ChunkPos.REGION_SIZE)
+        private var row = 0
 
-        val chunks = ArrayList<org.greamples.greenmap.protocol.ChunkSnapshot>(ChunkPos.REGION_SIZE * ChunkPos.REGION_SIZE)
-        for (dz in 0 until ChunkPos.REGION_SIZE) for (dx in 0 until ChunkPos.REGION_SIZE) {
-            val chunk = level.chunkSource.getChunk(min.x() + dx, min.z() + dz, ChunkStatus.FULL, true) as LevelChunk
-            chunks += ChunkScanner.scan(chunk, dimensionId)
+        init {
+            logger.info("Генерирую и сканирую регион r.{}.{} в {}", region.first, region.second, dimensionId)
         }
 
-        val batch = SnapshotBatch(
-            modVersion = "dev-export",
-            minecraftVersion = SharedConstants.getCurrentVersion().name(),
-            playerName = "dev-export",
-            playerUuid = "00000000-0000-0000-0000-000000000000",
-            createdAt = System.currentTimeMillis(),
-            chunks = chunks,
-        )
-        Files.createDirectories(outDir)
-        val file = outDir.resolve("r.$regionX.$regionZ.gmap")
-        val bytes = GreenMapCodec.encode(batch)
-        Files.write(file, bytes)
-        logger.info("Сохранено {} чанков ({} байт) в {}", chunks.size, bytes.size, file.toAbsolutePath())
+        /** @return true, когда весь регион отсканирован. */
+        fun step(): Boolean {
+            for (dx in 0 until ChunkPos.REGION_SIZE) {
+                val chunk = level.chunkSource.getChunk(min.x() + dx, min.z() + row, ChunkStatus.FULL, true) as LevelChunk
+                chunks += ChunkScanner.scan(chunk, dimensionId)
+            }
+            return ++row == ChunkPos.REGION_SIZE
+        }
+
+        fun save() {
+            val batch = SnapshotBatch(
+                modVersion = "dev-export",
+                minecraftVersion = SharedConstants.getCurrentVersion().name(),
+                playerName = "dev-export",
+                playerUuid = "00000000-0000-0000-0000-000000000000",
+                createdAt = System.currentTimeMillis(),
+                chunks = chunks,
+            )
+            Files.createDirectories(outDir)
+            val file = outDir.resolve("r.${region.first}.${region.second}.gmap")
+            val bytes = GreenMapCodec.encode(batch)
+            Files.write(file, bytes)
+            logger.info("Сохранено {} чанков ({} байт) в {}", chunks.size, bytes.size, file.toAbsolutePath())
+        }
     }
 
     private fun parseRegion(value: String): Pair<Int, Int> {
