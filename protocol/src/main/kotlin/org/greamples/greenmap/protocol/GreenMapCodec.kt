@@ -3,6 +3,7 @@ package org.greamples.greenmap.protocol
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -26,7 +27,13 @@ object GreenMapCodec {
     const val VERSION = 1
     const val CONTENT_TYPE = "application/x-greenmap-batch"
     private val MAGIC = byteArrayOf('G'.code.toByte(), 'M'.code.toByte(), 'A'.code.toByte(), 'P'.code.toByte())
-    private const val MAX_CHUNKS = 65_536
+    // Лимиты защищают сервер от "gzip-бомб" и мусора от недобросовестных клиентов.
+    const val MAX_CHUNKS = 1024
+    const val MAX_DECOMPRESSED_BYTES = 16L * 1024 * 1024
+    private const val MAX_BLOCK_PALETTE = 1 + 2 * ChunkSnapshot.COLUMNS
+    private const val MAX_BIOME_PALETTE = 1 + ChunkSnapshot.COLUMNS
+    private const val MAX_STRING = 256
+    private val DIMENSION_ID = Regex("^[a-z0-9_.-]+:[a-z0-9_./-]+$")
 
     fun encode(batch: SnapshotBatch): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -53,20 +60,21 @@ object GreenMapCodec {
     fun decode(bytes: ByteArray): SnapshotBatch = read(bytes.inputStream())
 
     fun read(source: InputStream): SnapshotBatch {
-        val input = DataInputStream(GZIPInputStream(source).buffered())
+        val input = DataInputStream(LimitedInputStream(GZIPInputStream(source), MAX_DECOMPRESSED_BYTES).buffered())
         val magic = ByteArray(4)
         input.readFully(magic)
         if (!magic.contentEquals(MAGIC)) throw IOException("not a GreenMap batch")
         val version = input.readUnsignedByte()
         if (version != VERSION) throw IOException("unsupported GreenMap batch version $version")
-        val modVersion = input.readUTF()
-        val minecraftVersion = input.readUTF()
-        val playerName = input.readUTF()
-        val playerUuid = input.readUTF()
+        val modVersion = readString(input)
+        val minecraftVersion = readString(input)
+        val playerName = readString(input)
+        val playerUuid = readString(input)
         val createdAt = input.readLong()
         val count = input.readInt()
         if (count !in 0..MAX_CHUNKS) throw IOException("bad chunk count $count")
         val chunks = List(count) { readChunk(input) }
+        if (input.read() != -1) throw IOException("trailing data after last chunk")
         return SnapshotBatch(modVersion, minecraftVersion, playerName, playerUuid, createdAt, chunks)
     }
 
@@ -88,12 +96,13 @@ object GreenMapCodec {
     }
 
     private fun readChunk(input: DataInputStream): ChunkSnapshot {
-        val dimension = input.readUTF()
+        val dimension = readString(input)
+        if (!DIMENSION_ID.matches(dimension)) throw IOException("bad dimension id")
         val chunkX = input.readInt()
         val chunkZ = input.readInt()
         val scannedAt = input.readLong()
-        val blockPalette = readPalette(input)
-        val biomePalette = readPalette(input)
+        val blockPalette = readPalette(input, MAX_BLOCK_PALETTE)
+        val biomePalette = readPalette(input, MAX_BIOME_PALETTE)
         val n = ChunkSnapshot.COLUMNS
         val surfaceBlock = IntArray(n)
         val surfaceY = IntArray(n)
@@ -120,10 +129,36 @@ object GreenMapCodec {
         for (entry in palette) out.writeUTF(entry)
     }
 
-    private fun readPalette(input: DataInputStream): List<String> {
+    private fun readPalette(input: DataInputStream, max: Int): List<String> {
         val size = input.readUnsignedShort()
-        if (size == 0) throw IOException("empty palette")
-        return List(size) { input.readUTF() }
+        if (size == 0 || size > max) throw IOException("bad palette size $size")
+        return List(size) { readString(input) }
+    }
+
+    private fun readString(input: DataInputStream): String {
+        val value = input.readUTF()
+        if (value.length > MAX_STRING) throw IOException("string too long")
+        return value
+    }
+
+    /** Обрывает чтение, если распакованные данные превысили лимит. */
+    private class LimitedInputStream(source: InputStream, private var remaining: Long) : FilterInputStream(source) {
+        override fun read(): Int {
+            val b = super.read()
+            if (b >= 0) consume(1)
+            return b
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            val n = super.read(b, off, len)
+            if (n > 0) consume(n.toLong())
+            return n
+        }
+
+        private fun consume(n: Long) {
+            remaining -= n
+            if (remaining < 0) throw IOException("batch is too large after decompression")
+        }
     }
 
     private fun checkIndex(index: Int, palette: List<String>): Int {

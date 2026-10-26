@@ -46,6 +46,7 @@ class ChunkSnapshot(
             mix(surfaceY[i]); mix(waterDepth[i])
             mix(blockPalette[floorBlock[i]].hashCode())
             mix(biomePalette[biome[i]].hashCode())
+            mix(mapColor[i])
         }
         return h
     }

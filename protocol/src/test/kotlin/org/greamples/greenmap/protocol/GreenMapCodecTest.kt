@@ -55,6 +55,30 @@ class GreenMapCodecTest {
     }
 
     @Test
+    fun rejectsHostileInput() {
+        val bad = ChunkSnapshotBuilder("../../etc", 0, 0).build(0)
+        val bytes = GreenMapCodec.encode(SnapshotBatch("1", "1", "p", "u", 0, listOf(bad)))
+        assertFailsWith<java.io.IOException> { GreenMapCodec.decode(bytes) }
+
+        // gzip-бомба: формально валидные чанки с огромными палитрами — ~26 МБ после распаковки.
+        val bomb = java.io.ByteArrayOutputStream()
+        java.io.DataOutputStream(java.util.zip.GZIPOutputStream(bomb)).use { out ->
+            out.write("GMAP".toByteArray()); out.writeByte(GreenMapCodec.VERSION)
+            repeat(4) { out.writeUTF("x") }
+            out.writeLong(0); out.writeInt(200)
+            val longName = "a".repeat(256)
+            repeat(200) {
+                out.writeUTF("minecraft:overworld"); out.writeInt(0); out.writeInt(0); out.writeLong(0)
+                out.writeShort(513); repeat(513) { out.writeUTF(longName) }
+                out.writeShort(1); out.writeUTF("minecraft:plains")
+                out.write(ByteArray(256 * 10))
+            }
+        }
+        val error = assertFailsWith<java.io.IOException> { GreenMapCodec.decode(bomb.toByteArray()) }
+        kotlin.test.assertContains(error.message ?: "", "too large")
+    }
+
+    @Test
     fun rejectsGarbage() {
         assertFailsWith<java.io.IOException> { GreenMapCodec.decode(ByteArray(10)) }
     }
