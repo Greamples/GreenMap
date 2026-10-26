@@ -32,7 +32,7 @@ object GreenMapCodec {
     const val MAX_DECOMPRESSED_BYTES = 16L * 1024 * 1024
     private const val MAX_BLOCK_PALETTE = 1 + 2 * ChunkSnapshot.COLUMNS
     private const val MAX_BIOME_PALETTE = 1 + ChunkSnapshot.COLUMNS
-    private const val MAX_STRING = 256
+    const val MAX_STRING = 256
     private val DIMENSION_ID = Regex("^[a-z0-9_.-]+:[a-z0-9_./-]+$")
 
     fun encode(batch: SnapshotBatch): ByteArray {
@@ -193,11 +193,13 @@ class ChunkSnapshotBuilder(
         surface: String, y: Int, depth: Int, floor: String, biomeId: String, mapColorId: Int,
     ) {
         val i = z * 16 + x
-        surfaceBlock[i] = blocks.getOrPut(surface) { blocks.size }
+        // Слишком длинные id (бывают у модов) сервер не примет — заменяем заглушкой, цвет даст MapColor.
+        fun id(value: String) = if (value.length > GreenMapCodec.MAX_STRING) UNKNOWN_BLOCK else value
+        surfaceBlock[i] = blocks.getOrPut(id(surface)) { blocks.size }
         surfaceY[i] = y
         waterDepth[i] = depth.coerceIn(0, 255)
-        floorBlock[i] = blocks.getOrPut(floor) { blocks.size }
-        biome[i] = biomes.getOrPut(biomeId) { biomes.size }
+        floorBlock[i] = blocks.getOrPut(id(floor)) { blocks.size }
+        biome[i] = biomes.getOrPut(if (biomeId.length > GreenMapCodec.MAX_STRING) UNKNOWN_BIOME else biomeId) { biomes.size }
         mapColor[i] = mapColorId and 0xFF
     }
 
@@ -211,5 +213,6 @@ class ChunkSnapshotBuilder(
     companion object {
         const val AIR = "minecraft:air"
         const val UNKNOWN_BIOME = "minecraft:plains"
+        const val UNKNOWN_BLOCK = "greenmap:unknown"
     }
 }

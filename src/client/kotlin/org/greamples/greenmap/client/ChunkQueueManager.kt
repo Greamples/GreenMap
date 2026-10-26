@@ -28,6 +28,10 @@ object ChunkQueueManager {
     private var backoffMs = 0L
     private var nextAttemptAt = 0L
 
+    // Взводится при входе на сервер: воркер выбросит пачку, собранную на прошлом сервере.
+    @Volatile
+    private var sessionChanged = false
+
     @Volatile
     var playerName: String = ""
     @Volatile
@@ -42,6 +46,8 @@ object ChunkQueueManager {
     /** Новый сервер — новая карта: забываем, что уже отправляли. */
     fun resetSession() {
         sentHashes.clear()
+        basketChunks.clear()
+        sessionChanged = true
     }
 
     fun startQueueWorker(config: GreenMapConfig, uploader: ChunkUploader) {
@@ -58,6 +64,12 @@ object ChunkQueueManager {
     }
 
     private fun flush(uploader: ChunkUploader, period: Long) {
+        if (sessionChanged) {
+            sessionChanged = false
+            pending = null
+            backoffMs = 0
+            nextAttemptAt = 0
+        }
         if (System.currentTimeMillis() < nextAttemptAt) return
         val batch = pending ?: takeBatch(uploader) ?: return
 
@@ -96,7 +108,12 @@ object ChunkQueueManager {
             createdAt = System.currentTimeMillis(),
             chunks = taken.values.toList(),
         )
-        val body = GreenMapCodec.encode(batch)
+        val body = try {
+            GreenMapCodec.encode(batch)
+        } catch (e: Exception) {
+            for ((key, snapshot) in taken) basketChunks.putIfAbsent(key, snapshot)
+            throw e
+        }
         uploader.dump(body)
         return PendingBatch(taken, body)
     }

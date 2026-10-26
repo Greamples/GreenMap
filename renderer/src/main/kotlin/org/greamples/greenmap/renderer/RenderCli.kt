@@ -45,12 +45,13 @@ fun main(args: Array<String>) {
     println("Загружено ${map.size} чанков из ${files.size} файлов")
 
     Files.createDirectories(out)
+    val root = out.toAbsolutePath().normalize()
     for (region in map.regions()) {
         // Имя измерения пришло от клиента: оставляем только безопасные символы.
         val dimension = region.dimension.replace(Regex("[^a-z0-9_.-]"), "_").replace("..", "_")
         for (style in styles) {
-            val file = out.resolve("${dimension}_r.${region.x}.${region.z}_${style.name.lowercase()}.png").normalize()
-            require(file.startsWith(out.normalize())) { "unsafe output path $file" }
+            val file = root.resolve("${dimension}_r.${region.x}.${region.z}_${style.name.lowercase()}.png").normalize()
+            require(file.startsWith(root)) { "unsafe output path $file" }
             ImageIO.write(RegionRenderer(palette, style).render(map, region), "png", file.toFile())
             println("→ $file")
         }
