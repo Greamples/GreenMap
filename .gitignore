@@ -16,3 +16,7 @@ run/
 # Windows
 Thumbs.db
 desktop.ini
+
+# Claude Code / oh-my-claudecode (локальные настройки агентов)
+.claude/
+.omc/
